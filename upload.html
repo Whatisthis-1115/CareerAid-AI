@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>简历上传 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">简历上传</div>
+          <div class="subtitle">支持 docx / pdf / jpg（图片需手动补充关键信息）</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>上传 / 手动录入</h2>
+          <form class="form" id="form">
+            <div>
+              <label>简历文件（可选）</label>
+              <input id="resume_file" type="file" accept=".docx,.pdf,.jpg,.jpeg,.png" />
+              <div class="hint">图片简历当前版本不做OCR：建议在“简历补充”里粘贴技能/经历关键词。</div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label>专业（可选）</label>
+                <input id="major" placeholder="例如：计算机科学与技术" />
+              </div>
+              <div>
+                <label>证书（可选）</label>
+                <input id="certs" placeholder="例如：CET-6, 计算机二级" />
+              </div>
+            </div>
+
+            <div>
+              <label>技能关键词（可选）</label>
+              <input id="skills" placeholder="例如：Python, SQL, Flask, 数据分析" />
+            </div>
+
+            <div>
+              <label>实习经历摘要（可选）</label>
+              <textarea id="internships" placeholder="例如：xx公司数据分析实习，负责指标体系与报表自动化"></textarea>
+            </div>
+
+            <div>
+              <label>简历补充（可选，建议粘贴简历文本/关键段落）</label>
+              <textarea id="resume_text" placeholder="粘贴教育背景、项目/实习、技能清单等内容，越完整越准确"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn primary" type="submit">上传并解析</button>
+              <a class="btn" href="chat.html">返回对话</a>
+            </div>
+            <div class="hint" id="msg"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>解析结果（能力画像）</h2>
+          <div class="hint">解析完成后会保存到后端数据库 `students.resume_parsed_json`。</div>
+          <div class="hr"></div>
+          <pre class="mono" id="out" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("upload");
+      if (!CareerAid.requireAuth()) throw new Error("not authed");
+
+      const msg = CareerAid.qs("msg");
+      const out = CareerAid.qs("out");
+
+      CareerAid.qs("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "解析中...";
+        out.textContent = "";
+
+        const fd = new FormData();
+        const f = CareerAid.qs("resume_file").files[0];
+        if (f) fd.append("resume_file", f);
+        fd.append("major", CareerAid.qs("major").value.trim());
+        fd.append("skills", CareerAid.qs("skills").value.trim());
+        fd.append("certs", CareerAid.qs("certs").value.trim());
+        fd.append("internships", CareerAid.qs("internships").value.trim());
+        fd.append("resume_text", CareerAid.qs("resume_text").value.trim());
+
+        try {
+          const data = await CareerAid.apiFetch("/upload_resume", { method: "POST", body: fd });
+          msg.textContent = "解析完成，已保存，正在返回对话页...";
+          out.textContent = JSON.stringify(data.resume_parsed || {}, null, 2);
+          setTimeout(() => (window.location.href = "chat.html"), 800);
+        } catch (err) {
+          msg.textContent = "失败：" + (err.message || String(err));
+        }
+      });
+    </script>
+  </body>
+</html>
+

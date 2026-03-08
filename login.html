@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">基于AI的大学生职业规划智能体</div>
+          <div class="subtitle">登录后进入 Agent 对话与分析页面</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>账号登录</h2>
+          <form class="form" id="loginForm">
+            <div>
+              <label>用户名</label>
+              <input id="username" placeholder="admin" autocomplete="username" required />
+            </div>
+            <div>
+              <label>密码</label>
+              <input id="password" type="password" placeholder="123456" autocomplete="current-password" required />
+            </div>
+            <button class="btn primary" type="submit">登录</button>
+            <div class="hint">测试账号：<span class="mono">admin</span> / <span class="mono">123456</span></div>
+            <div id="msg" class="hint" style="color: rgba(255,107,107,.95)"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>登录说明</h2>
+          <p>
+            当前为演示版登录：后端会返回一个临时 Token（保存在浏览器本地），用于调用简历解析、测评提交、人岗匹配与报告生成接口。
+          </p>
+          <div class="hr"></div>
+          <p class="hint">
+            企业接入时可替换为：校园统一认证/短信验证码/SSO，并将 Token 改为 JWT 或服务端 Session。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("login");
+      const msg = CareerAid.qs("msg");
+      const username = CareerAid.qs("username");
+      const password = CareerAid.qs("password");
+      username.value = "admin";
+      password.value = "123456";
+
+      CareerAid.qs("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "";
+        try {
+          const data = await CareerAid.apiFetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username.value.trim(), password: password.value.trim() }),
+          });
+          CareerAid.setToken(data.token);
+          window.location.href = "chat.html";
+        } catch (err) {
+          msg.textContent = err.message || String(err);
+        }
+      });
+    </script>
+  </body>
+</html>
+

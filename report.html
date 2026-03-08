@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>报告生成 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">报告生成</div>
+          <div class="subtitle">一键生成个性化职业规划报告，并支持下载</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>生成设置</h2>
+          <div class="form">
+            <div>
+              <label>你的目标（可选）</label>
+              <input id="goal" placeholder="例如：希望进入互联网数据分析，偏北京/上海" />
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn success" id="gen">一键生成报告</button>
+              <a class="btn" href="match.html">先看匹配结果</a>
+            </div>
+            <div class="hint" id="msg"></div>
+            <div id="downloadWrap" style="display:none;margin-top:10px">
+              <a class="btn primary" id="download" href="#" target="_blank" rel="noreferrer">下载报告（txt）</a>
+              <a class="btn" id="downloadDocx" href="#" target="_blank" rel="noreferrer">下载报告（Word）</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>报告内容</h2>
+          <div class="hint">生成后会保存到数据库；支持内容完整性检查、手动编辑后复制导出。</div>
+          <div id="completeness" class="hint" style="margin-top:6px"></div>
+          <div class="hr"></div>
+          <pre class="mono" id="out" style="white-space:pre-wrap;word-break:break-word;margin:0;min-height:200px"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("report");
+      if (!CareerAid.requireAuth()) throw new Error("not authed");
+
+      const msg = CareerAid.qs("msg");
+      const out = CareerAid.qs("out");
+      const downloadWrap = document.getElementById("downloadWrap");
+      const download = document.getElementById("download");
+      const downloadDocx = document.getElementById("downloadDocx");
+      const completenessEl = document.getElementById("completeness");
+
+      document.getElementById("gen").addEventListener("click", async () => {
+        msg.textContent = "生成中...";
+        out.textContent = "";
+        downloadWrap.style.display = "none";
+        completenessEl.textContent = "";
+        try {
+          const goal = CareerAid.qs("goal").value.trim();
+          const data = await CareerAid.apiFetch("/generate_report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal }),
+          });
+          msg.textContent = "已生成。";
+          out.textContent = data.content || "";
+          if (data.download_url) {
+            download.href = data.download_url;
+            downloadWrap.style.display = "block";
+          }
+          if (data.download_docx_url) {
+            downloadDocx.href = data.download_docx_url;
+            downloadWrap.style.display = "block";
+          }
+          const check = data.completeness_check || {};
+          if (check.complete) {
+            completenessEl.textContent = "完整性检查：通过。";
+            completenessEl.style.color = "rgba(126,231,135,.95)";
+          } else if (check.missing_sections && check.missing_sections.length) {
+            completenessEl.textContent = "完整性检查：缺失 " + check.missing_sections.join("、") + "。建议补充后重新生成。";
+            completenessEl.style.color = "rgba(255,193,7,.95)";
+          }
+        } catch (e) {
+          msg.textContent = "失败：" + (e.message || String(e));
+        }
+      });
+    </script>
+  </body>
+</html>
+

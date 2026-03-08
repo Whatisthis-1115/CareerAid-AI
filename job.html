@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>岗位列表 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">岗位列表</div>
+          <div class="subtitle">支持关键词筛选，并展示匹配预览（需先解析简历）</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>筛选</h2>
+          <div class="form">
+            <div>
+              <label>关键词（岗位/行业/要求）</label>
+              <input id="q" placeholder="例如：后端 / 数据 / NLP / React" />
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn primary" id="search">搜索</button>
+              <button class="btn" id="reset">重置</button>
+            </div>
+            <div class="hint" id="msg"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>岗位列表</h2>
+          <div class="hint">登录且已解析简历时，列表会显示匹配预览；点击“查看匹配详情”进入 TOP5 与雷达图。</div>
+          <div class="hr"></div>
+          <div class="list" id="list"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("job");
+
+      const list = CareerAid.qs("list");
+      const msg = CareerAid.qs("msg");
+      const q = CareerAid.qs("q");
+
+      async function load() {
+        msg.textContent = "加载中...";
+        list.innerHTML = "";
+        const keyword = q.value.trim();
+        const authed = Boolean(CareerAid.getToken());
+        const url =
+          "/jobs" +
+          (keyword ? "?q=" + encodeURIComponent(keyword) : "?") +
+          (authed ? "&include_match=1" : "");
+        try {
+          const data = await CareerAid.apiFetch(url, { method: "GET" });
+          const jobs = data.jobs || [];
+          msg.textContent = "共 " + jobs.length + " 个岗位";
+          for (const j of jobs) {
+            const div = document.createElement("div");
+            div.className = "item";
+            const preview = j.match_preview || null;
+            const score = preview ? Number(preview.score || 0) : null;
+            div.innerHTML =
+              '<div class="title">' +
+              CareerAid.escapeHtml(j.title) +
+              "</div>" +
+              '<div class="meta">' +
+              "<span class='badge'>" +
+              CareerAid.escapeHtml(j.industry || "未知行业") +
+              "</span>" +
+              "<span class='badge'>" +
+              CareerAid.escapeHtml(j.salary || "薪资未标注") +
+              "</span>" +
+              (preview
+                ? "<span class='badge'>匹配预览：<span class='score " +
+                  CareerAid.scoreClass(score) +
+                  "'>" +
+                  score +
+                  "%</span></span>"
+                : "<span class='badge'>匹配预览：登录并解析简历后可见</span>") +
+              "</div>" +
+              "<div style='margin-top:8px;color:rgba(232,238,252,.92)'>" +
+              CareerAid.escapeHtml((j.requirements_text || "").slice(0, 120)) +
+              (j.requirements_text && j.requirements_text.length > 120 ? "..." : "") +
+              "</div>" +
+              "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-top:10px'>" +
+              "<a class='btn' href='match.html'>查看匹配详情</a>" +
+              "</div>";
+            list.appendChild(div);
+          }
+        } catch (e) {
+          msg.textContent = "失败：" + (e.message || String(e));
+        }
+      }
+
+      CareerAid.qs("search").addEventListener("click", load);
+      CareerAid.qs("reset").addEventListener("click", () => {
+        q.value = "";
+        load();
+      });
+
+      load();
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent对话 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">Agent 对话（核心）</div>
+          <div class="subtitle">对话记录保存在 SQLite，跳转返回不丢失</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <h2>对话区</h2>
+        <div class="chat" id="chat" style="max-height:520px;overflow:auto"></div>
+        <div class="hr"></div>
+        <div class="form">
+          <div>
+            <label>输入框（回车发送）</label>
+            <input id="input" placeholder="例如：请结合我的简历和测评，分析我适合的岗位，并给出短期行动计划" />
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn primary" id="send">发送</button>
+            <span class="hint" id="status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("chat");
+      if (!CareerAid.requireAuth()) throw new Error("not authed");
+
+      const chatEl = CareerAid.qs("chat");
+      const inputEl = CareerAid.qs("input");
+      const statusEl = CareerAid.qs("status");
+
+      function addBubble(role, text) {
+        const div = document.createElement("div");
+        div.className = "bubble " + (role === "user" ? "user" : "ai");
+        div.innerHTML =
+          '<div class="who">' +
+          (role === "user" ? "你" : "AI助手") +
+          '</div><pre>' +
+          CareerAid.escapeHtml(text) +
+          "</pre>";
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      async function refreshMe() {
+        try {
+          const me = await CareerAid.apiFetch("/me");
+          const s = me.student || {};
+          statusEl.textContent = "当前登录账号：" + (s.username || "") + "，学生ID：" + (s.id || "");
+        } catch (e) {
+          statusEl.textContent = e.message || String(e);
+        }
+      }
+
+      async function loadHistory() {
+        const data = await CareerAid.apiFetch("/chat/history?limit=200");
+        chatEl.innerHTML = "";
+        const msgs = data.messages || [];
+        if (!msgs.length) {
+          // 开场白（后端也会写入引导，但这里先展示）
+          addBubble("ai", "你好！我是你的 AI 职业规划助手，先点击顶部【简历上传】按钮上传简历，我来为你解析个人能力画像吧～");
+          return;
+        }
+        for (const m of msgs) {
+          if (m.role === "user") addBubble("user", m.content);
+          else if (m.role === "ai") addBubble("ai", m.content);
+        }
+      }
+
+      async function send() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        addBubble("user", text);
+        try {
+          const res = await CareerAid.apiFetch("/chat/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          addBubble("ai", res.reply || "（无回复）");
+          await refreshMe();
+        } catch (e) {
+          addBubble("ai", "发送失败：" + (e.message || String(e)));
+        }
+      }
+
+      CareerAid.qs("send").addEventListener("click", send);
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          send();
+        }
+      });
+
+      refreshMe();
+      loadHistory();
+    </script>
+  </body>
+</html>
+

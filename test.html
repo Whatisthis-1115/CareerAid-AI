@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>性格测评 - 基于AI的大学生职业规划智能体</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">性格测评</div>
+          <div class="subtitle">用于增强职业规划建议（可选，但推荐）</div>
+        </div>
+        <div class="nav"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>测评题目</h2>
+          <form class="form" id="form">
+            <div class="item">
+              <div class="title">1. 工作偏好</div>
+              <div class="meta">
+                <label><input type="radio" name="work_style" value="independent" required /> 更偏好独立工作</label>
+                <label><input type="radio" name="work_style" value="team" required /> 更偏好团队协作</label>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="title">2. 决策风格</div>
+              <div class="meta">
+                <label><input type="radio" name="decision" value="data" required /> 偏数据与逻辑</label>
+                <label><input type="radio" name="decision" value="intuition" required /> 偏直觉与经验</label>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="title">3. 风险偏好</div>
+              <div class="meta">
+                <label><input type="radio" name="risk" value="stable" required /> 更偏稳定</label>
+                <label><input type="radio" name="risk" value="challenge" required /> 更偏挑战与变化</label>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="title">4. 学习方式</div>
+              <div class="meta">
+                <label><input type="radio" name="learning" value="systematic" required /> 系统学习（课程/书籍）</label>
+                <label><input type="radio" name="learning" value="hands_on" required /> 实战驱动（项目/竞赛）</label>
+              </div>
+            </div>
+
+            <div>
+              <label>补充说明（可选）</label>
+              <textarea id="note" placeholder="例如：更希望去某个行业/城市，或对某类岗位有强烈偏好"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn primary" type="submit">提交测评</button>
+              <a class="btn" href="chat.html">返回对话</a>
+            </div>
+            <div class="hint" id="msg"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>已保存的测评结果</h2>
+          <div class="hint">提交后会保存到 `students.personality_test_json`。</div>
+          <div class="hr"></div>
+          <pre class="mono" id="out" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/app.js"></script>
+    <script>
+      CareerAid.mountTopbar("test");
+      if (!CareerAid.requireAuth()) throw new Error("not authed");
+
+      const msg = CareerAid.qs("msg");
+      const out = CareerAid.qs("out");
+
+      async function loadMe() {
+        try {
+          const me = await CareerAid.apiFetch("/me");
+          out.textContent = JSON.stringify(me.student.personality_test || {}, null, 2);
+        } catch (e) {
+          out.textContent = "读取失败：" + (e.message || String(e));
+        }
+      }
+
+      CareerAid.qs("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "提交中...";
+        const fd = new FormData(e.target);
+        const payload = {
+          work_style: fd.get("work_style"),
+          decision: fd.get("decision"),
+          risk: fd.get("risk"),
+          learning: fd.get("learning"),
+          note: CareerAid.qs("note").value.trim(),
+        };
+        try {
+          await CareerAid.apiFetch("/submit_test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          msg.textContent = "已保存，正在返回对话页...";
+          await loadMe();
+          setTimeout(() => (window.location.href = "chat.html"), 800);
+        } catch (err) {
+          msg.textContent = "失败：" + (err.message || String(err));
+        }
+      });
+
+      loadMe();
+    </script>
+  </body>
+</html>
+
