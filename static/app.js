@@ -2,6 +2,15 @@
 (function () {
   const STORAGE_KEY = "careeraid_token";
 
+  function getApiBase() {
+    // 兼容用户直接用 file:// 打开前端页面的场景
+    // 正常情况（通过 Flask 打开 http://127.0.0.1:5000/）保持同源相对路径即可
+    if (window.location && window.location.protocol === "file:") {
+      return "http://127.0.0.1:5000";
+    }
+    return "";
+  }
+
   function getToken() {
     return localStorage.getItem(STORAGE_KEY) || "";
   }
@@ -28,7 +37,19 @@
     const token = getToken();
     if (token) headers["Authorization"] = "Bearer " + token;
     const opts = Object.assign({}, options, { headers });
-    const res = await fetch(path, opts);
+    const url = (getApiBase() || "") + path;
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      const hint =
+        "网络请求失败（Failed to fetch）。请确认：\n" +
+        "1) 后端已启动：python app.py（默认 http://127.0.0.1:5000）\n" +
+        "2) 前端请用浏览器打开：http://127.0.0.1:5000/ （不要用 file:// 直接打开 html）\n" +
+        "3) 若端口有改动，请同步修改后端启动端口或在浏览器访问正确地址";
+      const msg = (e && e.message) ? e.message : String(e);
+      throw new Error(hint + "\n\n原始错误：" + msg);
+    }
     const text = await res.text();
     let data = null;
     try {
@@ -124,4 +145,3 @@
     mountTopbar,
   };
 })();
-
